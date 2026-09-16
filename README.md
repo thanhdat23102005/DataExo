@@ -1,142 +1,160 @@
 # DataExodus
 
-> **A measurement study and monitoring tool that reveals where Australian websites send user data, what personal information those flows contain, and whether that behaviour matches their stated privacy policies.**
+Most websites send data about you to companies you have never heard of,
+in countries you did not choose. DataExodus makes that visible, and then
+blocks it.
 
-## Quick Start
+It is two things that work together:
 
-### 1. Install
+| | What it does | Where it runs |
+|---|---|---|
+| **`extension/`** | Watches every request your browser makes. Names the company behind each destination, scores the page's privacy risk 0–100, and detects your email or phone leaving as a **hash** | Chrome, on your laptop |
+| **`pi/`** | Collects what the extension sees, adds owner and country attribution, and blocks tracker domains **for every device on the network** by DNS | Raspberry Pi |
+
+The extension shows you the problem on one machine. The Pi does something
+about it for the phones, TVs and apps a browser extension can never reach.
+
+`research/` holds the separate 50-site measurement study this project grew
+out of — see [research/README.md](research/README.md).
+
+---
+
+## Why hashes matter
+
+A tracker rarely sends `you@example.com` across the wire. It sends
+`973dfe463ec857…`, the SHA-256 of it, and calls that anonymised.
+
+It is not. The same email always produces the same hash, so that value is
+a stable name for you that follows you between sites. The extension proves
+this: it hashes your identifier locally, every way a tracker's pipeline
+would normalise it first, then watches for those hashes in outbound
+traffic.
+
+Your raw identifier never leaves the browser. Only hashes are ever
+compared, and the Pi is never sent the identifier at all.
+
+---
+
+## 1. The extension
+
+**Install**
+
+1. `chrome://extensions`
+2. Turn on **Developer mode**
+3. **Load unpacked** → select the `extension/` folder
+4. Click the shield icon and enter the email or phone you want watched
+
+**What you get**
+
+- Which companies collect from the page you are on, and what country they sit in
+- A 0–100 risk score for the page
+- A loud alert when your identifier reaches a **third party** — the covert
+  case. Sending it to the site you are actually using is recorded but not
+  treated as a leak, because you chose to do that
+- Known malware and phishing domains redirected to a warning page
+
+**Identifier handling.** Entering `0412 345 678` hashes the digits-only
+form, the `+61` form and the `61` form as well, across MD5, SHA-1, SHA-256
+and SHA-512 — a tracker hashes what its own pipeline normalised, not what
+you typed. Gmail dot and `+tag` variants are covered too. Anything shorter
+than six characters is rejected, because a two-digit string matches ids
+and timestamps in almost every URL.
+
+---
+
+## 2. The Pi application
 
 ```bash
-# On RHEL/CentOS/Rocky
-chmod +x setup-rhel.sh
-./setup-rhel.sh
-
-# On macOS/Ubuntu (manual)
-python3 -m venv venv
-source venv/bin/activate  # or venv\Scripts\activate on Windows
-pip install -r requirements.txt
-playwright install chromium
+cd pi
+./setup_pi.sh                        # or: ./setup_pi.sh --geoip-key YOUR_KEY
+./.venv/bin/python app.py            # dashboard + telemetry, port 5000
+sudo ./.venv/bin/python dns_sinkhole.py   # network-wide blocking, port 53
 ```
 
-### 2. Download Reference Data
+A free MaxMind key (https://www.maxmind.com/en/geolite2/signup) enables
+country attribution. Without it everything else still works; the Pi just
+cannot say where a destination is.
 
-```bash
-python setup_data.py --geoip-key YOUR_MAXMIND_KEY
-```
+Then:
 
-Get a free GeoLite2 key at [maxmind.com](https://www.maxmind.com/en/geolite2/signup).
+- open `http://<pi-address>:5000` for the dashboard
+- in the extension popup's settings, set the gateway to
+  `http://<pi-address>:5000/api/telemetry`
+- to block for every device, point your router's DNS at the Pi
 
-### 3. Configure Your Identifiers
+**Run it on boot:** `./setup_pi.sh --install-services` writes systemd units
+for both services. The DNS one uses `CAP_NET_BIND_SERVICE` so it can bind
+port 53 without running as root.
 
-```bash
-cp data/identities.local.yaml data/identities.local.yaml
-cat > data/identities.local.yaml <<EOF
-email:
-  - your.real@email.com
-phone:
-  - "04XXXXXXXX"
-EOF
-```
+### What the Pi adds that the extension cannot
 
-**Never commit this file.**
+- **Country attribution.** The extension knows roughly who owns a domain;
+  the Pi resolves it and looks up the country, so offshore transfers under
+  the Privacy Act's APP 8 become visible.
+- **Whole-network blocking.** DNS covers every device on the Wi-Fi.
+- **History.** The extension forgets a tab when you close it. The Pi keeps
+  a record.
 
-### 4. Run Tests
+### Two lists, two questions
 
-```bash
-python -m pytest tests/ -v
-```
+Telling you a destination *is a tracker* and *black-holing it at the DNS
+layer* are different decisions, so they use different sources.
 
-### 5. Crawl (Batch Mode)
+**EasyPrivacy** answers the first. It is a request-level list: its rules
+carry paths and resource types, because a browser extension can act on
+those. `||wikipedia.org/beacon/` means Wikipedia serves a beacon at one
+path — not that Wikipedia is a tracker. Only whole-domain rules are read.
 
-```bash
-# Test one sector
-python -m crawler.crawl --sector government
+**A hosts-format list** answers the second, because it is written for DNS
+in the first place. A wrong answer here takes a site off the air for every
+device on the network, so a list built for name-level blocking is the only
+safe input.
 
-# Full crawl (50 sites)
-python -m crawler.crawl
+Some domains are deliberately absent from the DNS list even though the
+extension flags them — `connect.facebook.net` is the common one, because
+blocking it breaks "Log in with Facebook" across the web. The dashboard
+still shows it as a Facebook-owned tracker.
 
-# Process results
-python -m pipeline.process
+### What the Pi receives
 
-# Generate report & charts
-python -m analysis.report
-```
+Hostnames, tracker names, risk scores and hash-match events. **Not** full
+page URLs — those carry search terms and session ids, and this is a
+privacy tool. Telemetry can be switched off entirely in the extension's
+settings.
 
-### 6. Live Mode (Real-time Monitoring)
+---
 
-Terminal 1 — start agent:
-```bash
-uvicorn pipeline.agent:app --host 127.0.0.1 --port 8000
-```
-
-Browser — open the dashboard the agent serves:
-```
-http://localhost:8000
-```
-
-Chrome — install extension:
-1. Open `chrome://extensions`
-2. Enable **Developer mode**
-3. **Load unpacked** → select `extension/` folder
-4. Browse normally. Watch the dashboard update live.
-
-## Project Structure
+## Layout
 
 ```
-dataexodus/
-├── data/
-│   ├── sites.yaml              # 50 AU sites (frozen week 1)
-│   ├── identities.local.yaml   # YOUR identifiers (gitignored)
-│   ├── raw/                    # Crawl output
-│   └── blocklists/             # EasyPrivacy, Tracker Radar, GeoIP
-├── crawler/
-│   └── crawl.py                # Playwright crawler
-├── pipeline/
-│   ├── classify.py             # Tracker/entity/GeoIP classification
-│   ├── pii.py                  # Hash-based PII detection (Aho-Corasick)
-│   ├── process.py              # Batch pipeline → DuckDB
-│   ├── agent.py                # FastAPI real-time agent
-│   ├── ml_classifier.py        # Exploratory ML tracker classifier
-│   ├── risk.py                 # Risk scorer 0–100
-│   └── dashboard.html          # Live dashboard served at localhost:8000
-├── analysis/
-│   ├── report.py               # Stats, hypotheses, charts
-│   └── export_sheet.py         # Per-site CSV + Excel with chart
-├── extension/                  # Agent-backed extension (pushes to pipeline/agent.py)
-│   ├── manifest.json
-│   ├── background.js           # Request capture & batch push
-│   ├── popup.html
-│   └── popup.js
-├── data-tracker-ext/           # Standalone extension (client-side, no backend)
-│   ├── service-worker.js       # Classification, risk score, PII hash match
-│   ├── trackers.js             # Tracker → company/country/category map
-│   ├── md5.js                  # MD5 (WebCrypto has no MD5)
-│   └── popup/
-├── monitoring/
-│   ├── setup_monitoring.sh     # Downloads & runs InfluxDB + Grafana
-│   └── grafana/conf/           # DataExodus dashboard & datasource only
-├── tests/
-├── setup_data.py               # Download reference datasets
-├── setup-rhel.sh               # RHEL system setup
-└── requirements.txt
+DataExo/
+├── extension/              Chrome MV3 extension
+│   ├── service-worker.js   Request capture, classification, risk, PII matching
+│   ├── trackers.js         Domain → company, country, category
+│   ├── md5.js              MD5 (WebCrypto has SHA but no MD5)
+│   ├── warning.html        Malware block page
+│   └── popup/              Onboarding, dashboard, settings
+├── pi/                     Raspberry Pi application
+│   ├── app.py              Telemetry API + dashboard (port 5000)
+│   ├── dns_sinkhole.py     Network-wide DNS blocking (port 53)
+│   ├── classify.py         Tracker / owner / country lookup
+│   ├── store.py            DuckDB storage
+│   ├── dashboard.html
+│   ├── fetch_reference_data.py
+│   └── setup_pi.sh
+├── research/               The 50-site measurement study
+└── submission/             Project charter, proposal, diagrams
 ```
 
-## Three Layers
+## Ethics and scope
 
-| Layer | Question | Done When |
-|-------|----------|-----------|
-| 1 — Where | Destination mapping | One session renders as Sankey |
-| 2 — What | Data classification | Point at request, name the PII |
-| 3 — So What | Legal/risk framing | Compliance finding per site |
+Only public pages are observed, and only this machine's own traffic. No
+logins, no authentication, no attacks, no attempt to evade anything. This
+is passive observation of what a browser already sends, in the tradition
+of academic tracking studies such as Princeton's WebTAP.
 
-## Ethics & Safety
+The identifier watched for leaks is the user's own, entered by them, and
+is never transmitted anywhere.
 
-- **Only your own traffic** is recorded.
-- The database contains your full browsing history — **encrypt your disk**.
-- **Never push `identities.local.yaml` to git.**
-- Add a **pause toggle** in the extension for sensitive sites (banking, health).
-- If running on a Pi in your LAN, bind to `0.0.0.0` **with authentication**.
-
-## License
-
-MIT — for academic/research use.
+Risk scores are a self-designed heuristic, not a published model. Country
+adequacy is a simplification of a legal question, not legal advice.

@@ -1,65 +1,67 @@
 # DataExodus — Git Ignore
 
-# Sensitive data
-/data/identities.local.yaml
-/data/*.duckdb
-/data/*.duckdb.*
-/data/*.db
-/data/*.db-journal
-/data/live/
-/data/*.joblib
+# --- Pi application -----------------------------------------------------
+# Everything under pi/data is downloaded or generated: the blocklists and
+# GeoIP database come from fetch_reference_data.py, the DuckDB file is
+# built from observed traffic and is personal browsing history.
+/pi/data/
+/pi/.venv/
 
-# Monitoring stack secrets — Grafana admin password + InfluxDB admin token.
-# These MUST stay out of git; the setup script regenerates them.
-/monitoring/*/credentials.env
+# --- Research study -----------------------------------------------------
+# Your own identifiers. Never commit this.
+/research/data/identities.local.yaml
 
-# Monitoring stack runtime data & downloaded binaries (~650MB, re-downloaded
-# by monitoring/setup_monitoring.sh). Provisioning config is kept in git.
-/monitoring/influxdb/influxd
-/monitoring/influxdb/data/
-/monitoring/influxdb/LICENSE
-/monitoring/influxdb/README.md
-/monitoring/grafana/bin/
-/monitoring/grafana/data/
-/monitoring/grafana/data-storage/
-/monitoring/grafana/docs/
-/monitoring/grafana/packaging/
-/monitoring/grafana/plugins-bundled/
-/monitoring/grafana/public/
-/monitoring/grafana/tools/
-/monitoring/grafana/conf/defaults.ini
-/monitoring/grafana/conf/sample.ini
-/monitoring/grafana/Dockerfile
-/monitoring/grafana/LICENSE
-/monitoring/grafana/NOTICE.md
-/monitoring/grafana/README.md
-/monitoring/grafana/VERSION
+# Databases and their write-ahead logs
+/research/data/*.duckdb
+/research/data/*.duckdb.*
+/research/data/*.db
+/research/data/*.db-journal
+/research/data/live/
+/research/data/*.joblib
 
-# Grafana's own stock config, shipped inside the release tarball and restored
-# every time setup_monitoring.sh runs. Only the three dataexodus-* provisioning
-# files are ours, and those stay tracked.
-/monitoring/grafana/conf/ldap.toml
-/monitoring/grafana/conf/ldap_multiple.toml
-/monitoring/grafana/conf/provisioning/sample/
-/monitoring/grafana/conf/provisioning/*/sample.yaml
-
-# Raw outputs (large)
-/data/raw/*.json
-/data/raw_old_format/
+# Crawl output and downloadable reference data (large)
+/research/data/raw/
+/research/data/raw_old_format/
+/research/data/blocklists/
 
 # Generated analysis outputs — recreated by analysis/report.py and
 # analysis/export_sheet.py from whatever is currently in the database.
-/data/per_site.csv
-/data/per_site_report.xlsx
-/data/report.md
+/research/figures/
+/research/data/per_site.csv
+/research/data/per_site_report.xlsx
+/research/data/report.md
 
-# Blocklists (downloadable)
-/data/blocklists/
+# Monitoring stack secrets — Grafana admin password + InfluxDB admin token.
+# The setup script regenerates them.
+/research/monitoring/*/credentials.env
 
-# Figures
-/figures/
+# Monitoring runtime data & downloaded binaries (~650MB, re-downloaded by
+# setup_monitoring.sh). Only the dataexodus-* provisioning files are ours.
+/research/monitoring/influxdb/influxd
+/research/monitoring/influxdb/data/
+/research/monitoring/influxdb/LICENSE
+/research/monitoring/influxdb/README.md
+/research/monitoring/grafana/bin/
+/research/monitoring/grafana/data/
+/research/monitoring/grafana/data-storage/
+/research/monitoring/grafana/docs/
+/research/monitoring/grafana/packaging/
+/research/monitoring/grafana/plugins-bundled/
+/research/monitoring/grafana/public/
+/research/monitoring/grafana/tools/
+/research/monitoring/grafana/conf/defaults.ini
+/research/monitoring/grafana/conf/sample.ini
+/research/monitoring/grafana/conf/ldap.toml
+/research/monitoring/grafana/conf/ldap_multiple.toml
+/research/monitoring/grafana/conf/provisioning/sample/
+/research/monitoring/grafana/conf/provisioning/*/sample.yaml
+/research/monitoring/grafana/Dockerfile
+/research/monitoring/grafana/LICENSE
+/research/monitoring/grafana/NOTICE.md
+/research/monitoring/grafana/README.md
+/research/monitoring/grafana/VERSION
 
-# Python
+# --- Python -------------------------------------------------------------
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -67,19 +69,18 @@ __pycache__/
 dist/
 build/
 *.spec
+.pytest_cache/
 
-# Virtual env
+# --- Virtualenv ---------------------------------------------------------
 venv/
 .venv/
 .env
 .env/
 
-# IDE
+# --- Editors / OS -------------------------------------------------------
 .vscode/
 .idea/
 *.swp
 *.swo
-
-# OS
 .DS_Store
 Thumbs.db

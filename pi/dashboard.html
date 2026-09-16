@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DataExodus — Pi Dashboard</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --page:   #0d0d0f;
+    --card:   #17171b;
+    --border: rgba(255,255,255,0.09);
+    --text:   #f2f2f4;
+    --muted:  #8e8e98;
+    --accent: #3987e5;
+    --warn:   #e58c39;
+    --bad:    #e5564b;
+    --good:   #46b978;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--page); color: var(--text);
+    font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: 24px 16px 48px;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; justify-content: space-between; margin-bottom: 20px; }
+  h1 { font-size: 20px; margin: 0; letter-spacing: -0.2px; }
+  .sub { color: var(--muted); font-size: 12px; }
+  .status { font-size: 12px; color: var(--muted); }
+  .status b { color: var(--good); }
+  .status.stale b { color: var(--warn); }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .tile { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .tile .n { font-size: 26px; font-weight: 600; letter-spacing: -0.5px; }
+  .tile .l { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; margin-top: 2px; }
+  .tile.bad .n  { color: var(--bad); }
+  .tile.warn .n { color: var(--warn); }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin: 0 0 12px; font-weight: 600; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-weight: 500; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; padding-bottom: 6px; }
+  td { padding: 6px 0; border-top: 1px solid var(--border); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .name { max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .table-scroll { overflow-x: auto; }
+
+  .bar { height: 5px; background: var(--accent); border-radius: 3px; min-width: 2px; }
+  .bar.off { background: var(--warn); }
+  .pill { font-size: 10px; padding: 2px 7px; border-radius: 10px; background: #26262c; color: var(--muted); }
+  .pill.bad { background: #3a1a18; color: #f0a49c; }
+  .pill.good { background: #163726; color: #8fd6ae; }
+  .empty { color: var(--muted); font-size: 12px; padding: 14px 0; text-align: center; }
+  code { background: #26262c; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>DataExodus — Pi Dashboard</h1>
+      <div class="sub">Browser telemetry and network-wide DNS blocking</div>
+    </div>
+    <div class="status" id="status">connecting…</div>
+  </header>
+
+  <div class="tiles" id="tiles"></div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Who receives the most data</h2>
+      <div class="table-scroll"><table id="owners"></table></div>
+    </div>
+    <div class="card">
+      <h2>Where it goes</h2>
+      <div class="table-scroll"><table id="countries"></table></div>
+    </div>
+    <div class="card">
+      <h2>Riskiest pages visited</h2>
+      <div class="table-scroll"><table id="pages"></table></div>
+    </div>
+    <div class="card">
+      <h2>Identifier leaks</h2>
+      <div class="table-scroll"><table id="pii"></table></div>
+    </div>
+    <div class="card">
+      <h2>Blocked by DNS (whole network)</h2>
+      <div class="table-scroll"><table id="dns"></table></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const fmt = n => (n ?? 0).toLocaleString();
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+const ago = ts => {
+  if (!ts) return "";
+  const secs = Math.max(0, (Date.now() - new Date(ts + "Z").getTime()) / 1000);
+  if (secs < 60) return Math.round(secs) + "s ago";
+  if (secs < 3600) return Math.round(secs / 60) + "m ago";
+  return Math.round(secs / 3600) + "h ago";
+};
+
+function tiles(t) {
+  const items = [
+    ["", t.requests, "Requests"],
+    ["", t.destinations, "Destinations"],
+    ["warn", t.trackers, "Trackers"],
+    ["warn", t.offshore_destinations, "Offshore"],
+    ["bad", t.pii_events, "Identifier leaks"],
+    ["bad", t.dns_blocks, "DNS blocked"],
+  ];
+  document.getElementById("tiles").innerHTML = items.map(
+    ([cls, n, label]) => `<div class="tile ${cls}"><div class="n">${fmt(n)}</div><div class="l">${label}</div></div>`
+  ).join("");
+}
+
+function table(id, head, rows, render, emptyMsg) {
+  const el = document.getElementById(id);
+  if (!rows || rows.length === 0) {
+    el.innerHTML = `<tr><td class="empty">${emptyMsg}</td></tr>`;
+    return;
+  }
+  el.innerHTML =
+    `<tr>${head.map(h => `<th class="${h.num ? "num" : ""}">${h.label}</th>`).join("")}</tr>` +
+    rows.map(render).join("");
+}
+
+async function refresh() {
+  const statusEl = document.getElementById("status");
+  let data;
+  try {
+    const res = await fetch("/api/summary");
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    data = await res.json();
+  } catch (err) {
+    statusEl.className = "status stale";
+    statusEl.innerHTML = `<b>offline</b> — ${esc(err.message)}`;
+    return;
+  }
+
+  const ref = data.reference_data || {};
+  statusEl.className = "status";
+  statusEl.innerHTML =
+    `<b>live</b> — ${fmt(ref.tracker_domains)} tracker domains, ` +
+    `${ref.geoip ? "GeoIP on" : "GeoIP off"}`;
+
+  tiles(data.totals || {});
+
+  const maxOwner = Math.max(1, ...(data.top_owners || []).map(o => o.requests));
+  table("owners",
+    [{ label: "Company" }, { label: "Requests", num: true }, { label: "" }],
+    data.top_owners,
+    o => `<tr><td class="name">${esc(o.owner)}</td><td class="num">${fmt(o.requests)}</td>
+          <td style="width:90px"><div class="bar" style="width:${(o.requests / maxOwner) * 100}%"></div></td></tr>`,
+    "No telemetry yet — install the extension and browse.");
+
+  const maxCountry = Math.max(1, ...(data.countries || []).map(c => c.requests));
+  table("countries",
+    [{ label: "Country" }, { label: "Requests", num: true }, { label: "" }],
+    data.countries,
+    c => `<tr><td>${esc(c.country)} ${c.offshore ? '<span class="pill bad">offshore</span>' : '<span class="pill good">adequate</span>'}</td>
+          <td class="num">${fmt(c.requests)}</td>
+          <td style="width:90px"><div class="bar ${c.offshore ? "off" : ""}" style="width:${(c.requests / maxCountry) * 100}%"></div></td></tr>`,
+    "No country data — GeoIP may not be configured.");
+
+  table("pages",
+    [{ label: "Page" }, { label: "Risk", num: true }, { label: "Trackers", num: true }],
+    data.riskiest_pages,
+    p => `<tr><td class="name">${esc(p.page_domain)}</td><td class="num">${fmt(p.risk_score)}</td>
+          <td class="num">${fmt(p.trackers)}</td></tr>`,
+    "Nothing recorded yet.");
+
+  table("pii",
+    [{ label: "Sent to" }, { label: "As" }, { label: "When", num: true }],
+    data.recent_pii,
+    e => `<tr><td class="name">${esc(e.company || e.destination)}
+            ${e.scope === "covert" ? '<span class="pill bad">covert</span>' : '<span class="pill">1st-party</span>'}</td>
+          <td>${esc(e.hash_type)}</td><td class="num">${ago(e.ts)}</td></tr>`,
+    "No identifier matches — set one in the extension popup first.");
+
+  table("dns",
+    [{ label: "Hostname" }, { label: "Client" }, { label: "When", num: true }],
+    data.recent_dns_blocks,
+    b => `<tr><td class="name">${esc(b.hostname)}</td><td>${esc(b.client_ip)}</td>
+          <td class="num">${ago(b.ts)}</td></tr>`,
+    "No DNS blocks — point a device's DNS at this Pi to see them.");
+}
+
+refresh();
+setInterval(refresh, 4000);
+</script>
+</body>
+</html>

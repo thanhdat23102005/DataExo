@@ -1,31 +1,25 @@
 {
   "manifest_version": 3,
-  "name": "DataExodus",
-  "version": "1.0.0",
-  "description": "Real-time privacy tracker for DataExodus research project",
-  "permissions": [
-    "webRequest",
-    "storage",
-    "alarms",
-    "tabs"
-  ],
-  "host_permissions": [
-    "<all_urls>"
-  ],
+  "name": "DataExodus Observer",
+  "version": "3.3",
+  "description": "Tracks where your data goes, scores privacy risk, detects PII hash leaks, and blocks malware.",
+  "permissions": ["webRequest", "storage", "tabs", "declarativeNetRequest"],
+  "host_permissions": ["<all_urls>"],
   "background": {
-    "service_worker": "background.js"
-  },
-  "action": {
-    "default_popup": "popup.html",
-    "default_icon": {
-      "16": "icon16.png",
-      "48": "icon48.png",
-      "128": "icon128.png"
-    }
+    "service_worker": "service-worker.js",
+    "type": "module"
   },
   "icons": {
-    "16": "icon16.png",
-    "48": "icon48.png",
-    "128": "icon128.png"
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
   }
 }
