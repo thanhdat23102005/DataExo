@@ -18,6 +18,8 @@ from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
 from pptx.util import Emu, Inches, Pt
 
+from speaker_script import export_script_markdown, notes_text
+
 NAVY = RGBColor(0x1F, 0x3A, 0x5F)
 BLUE = RGBColor(0x39, 0x87, 0xE5)
 TEAL = RGBColor(0x1E, 0x8A, 0x7A)
@@ -113,14 +115,7 @@ def build():
             ["Thanh Dat Phan  ·  [Student ID]",
              "[Unit code and name]  ·  Week 8",
              "github.com/thanhdat23102005/DataExo"], size=16, color=GREY, spacing=1.35)
-    notes(s, """
-[0:00-0:15]
-Good morning. My project is called DataExodus, and it answers one question:
-when you open an ordinary Australian website, where does your data actually go?
-Over the next ten minutes I'll cover the problem, what I'm building, how I'm
-building it, and what is already working.
-Do not read the slide. Say the question, then pause.
-""")
+    notes(s, notes_text(1))
 
     # ---------------- 2. The problem ----------------
     s = blank(prs)
@@ -140,20 +135,7 @@ Do not read the slide. Say the question, then pause.
     textbox(s, Inches(0.9), Inches(6.3), Inches(11.5), Inches(0.5),
             "US Federal Trade Commission, 2024: \"Hashing is not anonymization\"",
             size=14, color=GREY)
-    notes(s, """
-[0:15-1:25]
-This is the heart of the project. A tracker rarely sends your email address in
-plain text - it sends the hash of it, and calls that anonymised.
-
-But hashing is deterministic. The same email always produces the same hash. So
-that value is still a name for you, it just isn't readable. Any site that
-receives it recognises the same person.
-
-The FTC said exactly this in 2024. My project doesn't argue the point - it
-demonstrates it, on the audience's own traffic.
-
-Pause after "It is not." Let it land.
-""")
+    notes(s, notes_text(2))
 
     # ---------------- 3. Background ----------------
     s = blank(prs)
@@ -168,18 +150,7 @@ Pause after "It is not." Let it land.
         ("Self-initiated individual project",
          "no external client; assessor is the approving stakeholder"),
     ], y=Inches(2.0), size=19, gap=Inches(1.05))
-    notes(s, """
-[1:25-2:25]
-Why Australia specifically. Australian Privacy Principle 8 places obligations on
-organisations that send personal information overseas. The ACCC's Digital
-Platforms Inquiry found consumers have almost no practical visibility of this.
-
-So there is a law about cross-border disclosure, and no way for an ordinary
-person to see whether it is happening to them. That gap is what I'm building for.
-
-This is my own initiative - there's no external client. The assessor is the
-approving stakeholder.
-""")
+    notes(s, notes_text(3))
 
     # ---------------- 4. What I am building ----------------
     s = blank(prs)
@@ -207,22 +178,7 @@ approving stakeholder.
     textbox(s, Inches(0.9), Inches(5.6), Inches(11.5), Inches(0.9),
             "The extension shows you the problem. The Pi does something about it.",
             size=20, color=AMBER, bold=True)
-    notes(s, """
-[2:25-3:25]
-The project is two things a person actually installs.
-
-First, a Chrome extension. It watches every request the browser makes, names the
-company behind each destination, scores the page for risk, and detects your own
-identifier leaving as a hash.
-
-Second, a Raspberry Pi application. It collects what the extension sees, adds
-country attribution the browser can't do, and blocks tracker domains by DNS -
-which covers every device on the network, including the phone and the TV that
-can never run an extension.
-
-One line to remember: the extension shows you the problem, the Pi does something
-about it.
-""")
+    notes(s, notes_text(4))
 
     # ---------------- 5. Architecture ----------------
     s = blank(prs)
@@ -236,22 +192,7 @@ about it.
             pic.height = Inches(5.6)
             pic.width = Emu(int(pic.width * ratio))
             pic.left = Emu(int((SLIDE_W - pic.width) / 2))
-    notes(s, """
-[3:25-4:40]
-This is the whole system on one slide.
-
-On the left, the home network. The laptop runs the extension; the phone and the
-TV cannot. In the middle, the Raspberry Pi: the DNS sinkhole at the top answers
-tracker queries with 0.0.0.0, the FastAPI app receives telemetry, classify and
-store handle attribution and storage, and the dashboard presents it.
-
-Point at the orange bar along the bottom. That is the privacy boundary. The raw
-email and the full page URLs never cross it. Only hashes are compared and only
-hostnames are sent - because a URL carries your search terms and session ids, and
-this is supposed to be a privacy tool.
-
-Walk the diagram left to right with your hand, then turn back to the audience.
-""")
+    notes(s, notes_text(5))
 
     # ---------------- 6. Requirements ----------------
     s = blank(prs)
@@ -278,21 +219,7 @@ Walk the diagram left to right with your hand, then turn back to the audience.
              "dnslib UDP server, upstream 1.1.1.1",
              "Playwright crawler over a frozen site list"],
             size=15, color=DARK, spacing=1.45)
-    notes(s, """
-[4:40-5:40]
-Seven high-level requirements on the left - what the system has to do. Seven
-matching implementation decisions on the right - how.
-
-I'll call out two. HR-4: distinguishing covert from intentional. If you type your
-email into a site's own search box, that's you choosing to. If that site quietly
-forwards the hash to Facebook, that's the thing worth alarming about. Early on I
-treated both the same, and everything looked like a breach.
-
-And the normalisation row. A tracker doesn't hash what you typed - it hashes what
-its own pipeline normalised first. I'll come back to that.
-
-In the plan each of these is traced through to how it gets verified.
-""")
+    notes(s, notes_text(6))
 
     # ---------------- 7. Goals ----------------
     s = blank(prs)
@@ -311,19 +238,7 @@ In the plan each of these is traced through to how it gets verified.
         ("G6 · Report H1–H4 with stated statistical methods",
          "by week 13, significant or not"),
     ], y=Inches(1.85), size=17, gap=Inches(0.83))
-    notes(s, """
-[5:40-6:25]
-Six goals, each measurable and dated, and together they cover every requirement.
-
-The one I'd point at is G4: zero false positives. Not "few". At the DNS layer a
-false positive doesn't inconvenience one browser - it takes a website off the air
-for everyone in the house. That's the number that has to be zero.
-
-G6 says "significant or not" deliberately. If sectors don't differ, I report that.
-I'm not designing this to confirm an answer I already like.
-
-Don't read all six. Name the count, then talk about G4 and G6.
-""")
+    notes(s, notes_text(7))
 
     # ---------------- 8. Methodology ----------------
     s = blank(prs)
@@ -344,27 +259,7 @@ Don't read all six. Name the count, then talk about G4 and G6.
          "wikipedia.org and github.com were classified as trackers — caught before that layer "
          "ever reached the network"),
     ], y=Inches(3.9), size=17, gap=Inches(0.95))
-    notes(s, """
-[6:25-7:40]
-Methodology, and this is where I want to be concrete rather than quote a textbook.
-
-I build in vertical layers. Each one is a complete working system by itself, and
-later layers add capability without making earlier ones worthless.
-
-Why not waterfall: my riskiest unknowns are technical and they sit early. Waterfall
-would surface them in an integration phase with no time left to react.
-
-Why not formal Scrum: the ceremonies exist to coordinate a team. There's one of me.
-I kept short increments and working software; I dropped the meetings.
-
-And here's the evidence it was the right call. My DNS blocklist parser classified
-wikipedia.org and github.com as trackers - because filter rules that block a single
-path were being read as blocking the whole domain. At the DNS layer that takes
-Wikipedia off the air for every device in the house. I caught it because I tested
-that layer in isolation before connecting it to anything.
-
-This story is worth telling properly - it's the strongest thing on the slide.
-""")
+    notes(s, notes_text(8))
 
     # ---------------- 9. Tools and standards ----------------
     s = blank(prs)
@@ -391,20 +286,7 @@ This story is worth telling properly - it's the strongest thing on the slide.
             "Every data source is public — EasyPrivacy, Tracker Radar, GeoLite2 — so any "
             "classification I report can be independently audited.",
             size=15, color=AMBER, bold=True)
-    notes(s, """
-[7:40-8:25]
-Quickly on tools, because the plan justifies each one in detail.
-
-Two worth naming here. DuckDB, because my questions are aggregate ones - "which
-company receives the most requests" - and that's what a columnar database is for,
-in a single file with no server to administer.
-
-And dnslib rather than configuring dnsmasq, because I want the blocking logic to be
-code I can read and test, not settings buried in a config file.
-
-On standards: everything I classify comes from a public list. That means a marker
-can check any claim I make. That's deliberate.
-""")
+    notes(s, notes_text(9))
 
     # ---------------- 10. Evidence ----------------
     s = blank(prs)
@@ -424,23 +306,7 @@ can check any claim I make. That's deliberate.
         ("Study pipeline: 10 government sites crawled, 543 requests classified",
          "remaining 40 sites scheduled for weeks 9–10"),
     ], y=Inches(1.8), size=16, gap=Inches(0.82))
-    notes(s, """
-[8:25-9:25]
-This is the slide I'd most like you to take away, because none of it is a plan -
-it's all been run.
-
-The MD5 I wrote is verified against twelve reference vectors, including the padding
-boundaries at 55, 56 and 57 bytes, which is where hand-written MD5 usually breaks.
-
-The normalisation line is my favourite. If you type your phone number as "0412 345
-678" and a tracker hashes "61412345678", the old version of my code matched nothing
-and reported no leak - silently. The fix hashes every plausible form. I have a test
-that proves the old one missed and the new one matches.
-
-And zero false positives on the DNS blocking, which is the G4 number.
-
-Say "none of this is a plan, it's all been run" and then pause.
-""")
+    notes(s, notes_text(10))
 
     # ---------------- 11. Timeline and risks ----------------
     s = blank(prs)
@@ -464,18 +330,7 @@ Say "none of this is a plan, it's all been run" and then pause.
              "Chrome DNS-over-HTTPS bypasses the sinkhole",
              "   → stated limitation; the extension still sees these requests"],
             size=14, color=DARK, spacing=1.5)
-    notes(s, """
-[9:25-9:55]
-Briefly: weeks 9 and 10 are the full crawl, 11 is deployment and the false-positive
-testing, 12 and 13 are the dashboard and the analysis, 14 is the final presentation.
-
-On risk - the honest one is the third. If someone turns on Chrome's secure DNS,
-their queries go straight to Google and my sinkhole never sees them. I can't stop
-that. But the extension still observes those requests, which is precisely why the
-project is two deliverables and not one.
-
-Don't rush this slide just because it's near the end.
-""")
+    notes(s, notes_text(11))
 
     # ---------------- 12. Close ----------------
     s = blank(prs)
@@ -493,23 +348,10 @@ Don't rush this slide just because it's near the end.
     textbox(s, Inches(0.9), Inches(5.9), Inches(11.5), Inches(0.9),
             ["Questions?", "github.com/thanhdat23102005/DataExo"],
             size=20, color=NAVY, bold=True, spacing=1.35)
-    notes(s, """
-[9:55-10:00]
-To close: a hash is not anonymous, and this project proves it on your own traffic
-rather than describing it. The extension shows you the problem; the Pi does
-something about it for every device you own.
+    notes(s, notes_text(12))
 
-Happy to take questions.
-
-Likely questions and short answers:
-- "Why not just use Pi-hole?" Pi-hole blocks. It doesn't tell you who owns a
-  destination, which country it's in, or whether your identifier went with it.
-- "Is this legal?" Public pages only, my own traffic, my own identifier, no logins
-  and no attacks - the same basis as published academic measurement work.
-- "Why only 50 sites?" Because I verify every classification by hand. Fifty is a
-  number I can audit; five thousand is a number I could only assert.
-- "What if you find nothing?" I report that. It's a measurement, not an argument.
-""")
+    md = export_script_markdown(Path(__file__).parent / "Speaker_Script.md")
+    print(f"[done] {md.name}")
 
     out = Path(__file__).parent / "Early_Stage_Presentation_DataExodus.pptx"
     prs.save(str(out))
